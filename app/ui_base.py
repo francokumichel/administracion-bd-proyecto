@@ -151,6 +151,8 @@ class UiBaseMixin:
         builder()
 
     def page(self, title, subtitle="", popup=True):
+        if self._active_module_window is not None and self._active_module_window.winfo_exists():
+            self._active_module_window.destroy()
         if popup:
             win = tk.Toplevel(self)
             win.title(f"SAINT REPAIRS | {title}")
@@ -221,6 +223,8 @@ class UiBaseMixin:
             builder()
 
     def table_page(self, title, columns, rows, add_command=None, extra_buttons=None):
+        if self._active_module_window is not None and self._active_module_window.winfo_exists():
+            self._active_module_window.destroy()
         body = self.page(title)
         bar = tk.Frame(body, bg=BG)
         bar.pack(fill="x", pady=(0,10))
