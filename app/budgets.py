@@ -64,9 +64,14 @@ class BudgetsMixin:
                         values=[f"{r['id_orden']} - {r['cliente']} - {r['estado']}" for r in orders])
         cb.grid(row=0,column=1,padx=8,pady=6,sticky="ew")
 
-        tk.Label(top,text="Descuento",bg=BG,fg=TEXT).grid(row=0,column=2,padx=8,pady=6,sticky="w")
+        tk.Label(top,text="Descuento (%)",bg=BG,fg=TEXT).grid(row=0,column=2,padx=8,pady=6,sticky="w")
         ed=ttk.Entry(top,width=18)
-        ed.insert(0,str(p["descuento"] if p else 0))
+        # En la base se guarda el monto; al editar se lo convierte de nuevo a porcentaje.
+        if p and p["subtotal"]:
+            pct_inicial=round(float(p["descuento"] or 0)/float(p["subtotal"])*100,2)
+        else:
+            pct_inicial=0
+        ed.insert(0,f"{pct_inicial:g}")
         ed.grid(row=0,column=3,padx=8,pady=6,sticky="w")
 
         tk.Label(top,text="Vencimiento (AAAA-MM-DD)",bg=BG,fg=TEXT).grid(row=1,column=0,padx=8,pady=6,sticky="w")
@@ -143,12 +148,14 @@ class BudgetsMixin:
         tree.pack(fill="both",expand=True,padx=8,pady=(2,8))
 
         def recalc():
+            """Devuelve (subtotal, monto_descuento, total, porcentaje)."""
             subtotal=sum(x[2] for x in lines)
             try:
-                discount=max(0,float(ed.get() or 0))
+                pct=min(100,max(0,float((ed.get() or "0").replace(",","."))))
             except (TypeError,ValueError):
-                discount=0
-            return subtotal,max(0,subtotal-discount)
+                pct=0
+            discount=round(subtotal*pct/100,2)
+            return subtotal,discount,max(0,subtotal-discount),pct
 
         def add_line():
             try:
@@ -194,8 +201,8 @@ class BudgetsMixin:
 
         def update_total(*_):
             try:
-                sub,tot=recalc()
-                totalvar.set(f"Subtotal: {self._money(sub)}    Descuento: {self._money(float(ed.get() or 0))}    TOTAL: {self._money(tot)}")
+                sub,disc,tot,pct=recalc()
+                totalvar.set(f"Subtotal: {self._money(sub)}    Descuento ({pct:g}%): {self._money(disc)}    TOTAL: {self._money(tot)}")
             except Exception:
                 pass
         ed.bind("<KeyRelease>",update_total)
@@ -206,14 +213,15 @@ class BudgetsMixin:
                 messagebox.showwarning("Validación","Seleccione una orden y agregue al menos un concepto.",parent=win)
                 return None
             try:
-                discount=max(0,float(ed.get() or 0))
+                pct=float((ed.get() or "0").replace(",","."))
             except (TypeError,ValueError):
-                messagebox.showwarning("Validación","El descuento debe ser numérico.",parent=win)
+                messagebox.showwarning("Validación","El descuento debe ser un porcentaje numérico.",parent=win)
+                return None
+            if pct<0 or pct>100:
+                messagebox.showwarning("Validación","El descuento debe estar entre 0 y 100 %.",parent=win)
                 return None
             subtotal=sum(x[2] for x in lines)
-            if discount>subtotal:
-                messagebox.showwarning("Validación","El descuento no puede superar el subtotal.",parent=win)
-                return None
+            discount=round(subtotal*pct/100,2)   # monto que se guarda en la columna "descuento"
             oid=int(cb.get().split(" - ",1)[0])
             total=max(0,subtotal-discount)
             estado=es.get() or "Pendiente"
