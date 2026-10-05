@@ -1,6 +1,6 @@
 """Aplicación principal SAINT REPAIRS.
 
-La clase App coordina la ventana principal; cada módulo funcional vive en su
+La clase App,,, coordina la ventana principal; cada módulo funcional vive en su
 propio mixin para mantener el proyecto escalable y fácil de mantener.
 """
 
